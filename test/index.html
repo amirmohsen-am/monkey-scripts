@@ -1,0 +1,34 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>gate isolation test</title>
+<!--
+  Served at path "/" so the script's homepage guard passes unmodified.
+  The CSS below is deliberately hostile: it mimics the kind of global rules
+  Reddit applies to `button` and inherited text properties, exaggerated. If the
+  gate still renders correctly here, the shadow root is doing its job.
+-->
+<style>
+  html, body {
+    font-family: 'Comic Sans MS', cursive !important;
+    line-height: 4 !important; color: #c00 !important;
+    letter-spacing: 3px !important; text-transform: uppercase !important;
+  }
+  button {
+    line-height: 3.4 !important; padding: 22px 6px !important;
+    font-size: 27px !important; font-family: Georgia, serif !important;
+    vertical-align: super !important; text-transform: capitalize !important;
+    background: #ff0 !important; color: #00f !important; border-radius: 40px !important;
+  }
+  div { text-transform: uppercase; letter-spacing: 4px; }
+  body { margin: 0; padding: 24px; background: #dae0e6; }
+  .card { max-width: 620px; margin: 0 auto 12px; background: #fff; border: 1px solid #ccc; padding: 14px 16px; }
+</style>
+<script src="reddit-delay.user.js"></script>
+
+<div class="card"><h3>fake page content</h3><p>Visible only after the gate finishes.</p></div>
+<div class="card"><h3>more content</h3><p>The hostile CSS above styles these too.</p></div>
+<p style="max-width:620px;margin:16px auto;font:13px/1.6 monospace;text-transform:none;letter-spacing:0">
+  Pass: black screen, green monospace, prompt types itself out, buttons are small
+  bordered rectangles. Fail: Comic Sans, red text, giant yellow pill buttons.
+  Note the once-per-tab flag applies here too — reload in a NEW tab to re-run.
+</p>
