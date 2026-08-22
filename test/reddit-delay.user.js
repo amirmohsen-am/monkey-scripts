@@ -1,1 +1,0 @@
-../reddit-delay.user.js
