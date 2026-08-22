@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Lichess Cooldown
 // @namespace    https://github.com/amirmohsen-am/monkey-scripts
-// @version      1.1.0
+// @version      1.2.0
 // @description  Holds the "New opponent" button for 15 seconds after a game, with the countdown drawn on the button
 // @author       amirmohsen-am
 // @match        https://lichess.org/*
@@ -19,30 +19,20 @@
 
   const DELAY_SECONDS = 15;                         // hold before the button arms
   const SELECTOR      = '.follow-up .new-opponent'; // lichess's post-game button
-  const SHOW_FILL     = true;                       // false = countdown number only
 
   /* -------------------------------------------------------------------- */
 
   const ATTR = 'data-cooldown';
-  const FILL = '--cooldown-fill';
 
-  // Everything visual hangs off the data attribute, so releasing the button is
-  // just removing it. The label is drawn with ::after rather than by rewriting
+  // The whole state is this one attribute, so releasing the button is just
+  // removing it. The seconds are drawn with ::after rather than by rewriting
   // textContent: lichess renders this view with snabbdom, and a child node we
-  // add ourselves is something a patch can discard. The attribute and the
-  // custom property appear in neither the old nor the new vnode, so snabbdom's
-  // attribute and style modules leave them alone.
+  // add ourselves is something a patch can discard. The attribute appears in
+  // neither the old nor the new vnode, so snabbdom's attribute module leaves
+  // it alone.
   const style = document.createElement('style');
   style.textContent = `
-    .new-opponent[${ATTR}] {
-      pointer-events: none;
-      opacity: .55;
-      /* Flat grey first, so a browser without color-mix still shows a bar. */
-      background-image: linear-gradient(to right,
-        rgba(128, 128, 128, .35) var(${FILL}, 0%), transparent 0);
-      background-image: linear-gradient(to right,
-        color-mix(in srgb, currentColor 22%, transparent) var(${FILL}, 0%), transparent 0);
-    }
+    .new-opponent[${ATTR}] { pointer-events: none; opacity: .55; }
     .new-opponent[${ATTR}]::after { content: ' (' attr(${ATTR}) ')'; }
   `;
   document.documentElement.appendChild(style);
@@ -91,34 +81,24 @@
     if (gated.has(button)) return;
     gated.add(button);
 
-    // Set before the first frame, so the button is never briefly live.
+    // Set before the first tick, so the button is never briefly live.
     button.setAttribute(ATTR, String(DELAY_SECONDS));
 
     const started = performance.now();
-    let shown = null;
 
-    requestAnimationFrame(function tick(now) {
-      // Elapsed time comes from the clock, not from counting frames. A
-      // backgrounded tab stops painting, and on return this computes the real
-      // elapsed time and finishes rather than owing the full wait again.
-      const progress = Math.min((now - started) / (DELAY_SECONDS * 1000), 1);
-      const left = Math.max(Math.ceil(DELAY_SECONDS - progress * DELAY_SECONDS), 0);
+    (function step() {
+      // Seconds left come from the clock rather than from counting ticks, so
+      // a throttled or delayed timer shows the true remaining time and cannot
+      // drift the release later than the wait actually is.
+      const elapsed = performance.now() - started;
+      const left = Math.ceil((DELAY_SECONDS * 1000 - elapsed) / 1000);
 
-      if (left !== shown) {
-        shown = left;
-        button.setAttribute(ATTR, String(left));
+      if (left <= 0) {
+        button.removeAttribute(ATTR);
+        return;
       }
-      if (SHOW_FILL) {
-        button.style.setProperty(FILL, (100 - progress * 100).toFixed(2) + '%');
-      }
-
-      if (progress < 1) requestAnimationFrame(tick);
-      else release(button);
-    });
-  }
-
-  function release(button) {
-    button.removeAttribute(ATTR);
-    button.style.removeProperty(FILL);
+      button.setAttribute(ATTR, String(left));
+      setTimeout(step, 1000 - (elapsed % 1000)); // land on the next whole second
+    })();
   }
 })();

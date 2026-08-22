@@ -38,12 +38,12 @@
   <div id="zone"></div>
 
   <p><strong>Pass:</strong> the button appears already dimmed, reading
-    <code>NEW OPPONENT (15)</code>, with a grey fill that drains left to right.
+    <code>NEW OPPONENT (15)</code>, counting down one second at a time.
     Clicking it does nothing, and neither does Tab-to-focus + Enter — the log
     stays empty. At zero the dimming and the number vanish and a click logs.
     <em>Re-render</em> mid-countdown must not disturb the countdown.
-    <strong>Fail:</strong> no number, no fill, clicks land during the hold, or
-    the countdown resets/stops after a re-render.</p>
+    <strong>Fail:</strong> no number, clicks land during the hold, or the
+    countdown resets/stops after a re-render.</p>
 
   <div class="log" id="log"></div>
 </div>
