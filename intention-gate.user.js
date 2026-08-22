@@ -1,18 +1,26 @@
 // ==UserScript==
-// @name         Reddit Intention Gate
+// @name         Intention Gate
 // @namespace    https://github.com/amirmohsen-am/monkey-scripts
-// @version      1.1.0
-// @description  Requires a deliberate keypress + 5s wait before the Reddit homepage is revealed
+// @version      1.2.0
+// @description  Requires a deliberate keypress + 5s wait before Reddit or X is revealed
 // @author       amirmohsen-am
 // @match        https://www.reddit.com/
 // @match        https://www.reddit.com/?*
 // @match        https://reddit.com/
 // @match        https://reddit.com/?*
+// @match        https://x.com/
+// @match        https://x.com/?*
+// @match        https://x.com/home
+// @match        https://x.com/home?*
+// @match        https://www.x.com/
+// @match        https://www.x.com/?*
+// @match        https://www.x.com/home
+// @match        https://www.x.com/home?*
 // @run-at       document-start
 // @noframes
 // @grant        none
-// @downloadURL  https://raw.githubusercontent.com/amirmohsen-am/monkey-scripts/main/reddit-delay.user.js
-// @updateURL    https://raw.githubusercontent.com/amirmohsen-am/monkey-scripts/main/reddit-delay.user.js
+// @downloadURL  https://raw.githubusercontent.com/amirmohsen-am/monkey-scripts/main/intention-gate.user.js
+// @updateURL    https://raw.githubusercontent.com/amirmohsen-am/monkey-scripts/main/intention-gate.user.js
 // ==/UserScript==
 
 (function () {
@@ -23,27 +31,49 @@
   const DELAY_SECONDS = 5;                              // wait after confirming
   const EXIT_URL      = 'about:blank';                  // where abort goes with no history
   const ONCE_PER_TAB  = true;                           // false = gate every single load
-  const PROMPT        = '> confirm intent to open reddit';
   const WAITING       = '> opening in';
   const TYPE_MS       = 32;                             // typing speed, ms per character
 
+  // One entry per gated site. `host` is matched with any leading "www."
+  // stripped; `paths` lists the feeds worth gating — deep links (a specific
+  // post, a profile) are left alone, since the point is to stop aimless
+  // scrolling, not to block the site. Adding a site here also needs a matching
+  // pair of @match lines in the header above.
+  const SITES = [
+    { id: 'reddit', host: 'reddit.com', paths: ['/'],          prompt: '> confirm intent to open reddit' },
+    { id: 'x',      host: 'x.com',      paths: ['/', '/home'], prompt: '> confirm intent to open x' },
+    // For test/index.html only. Inert in a real install: no @match covers
+    // localhost, so the gate can never fire there via the extension.
+    { id: 'test',   host: 'localhost',  paths: ['/'],          prompt: '> confirm intent to open reddit' },
+  ];
+
   /* -------------------------------------------------------------------- */
 
-  const FLAG = 'rd-gate-passed';
+  // The match patterns already narrow this down, but a query string can slip
+  // past them, so resolve the site from the live location instead of trusting
+  // them. X also serves the feed from two paths: "/" redirects to "/home"
+  // once you are logged in.
+  const hostname = location.hostname.replace(/^www\./, '');
+  const site = SITES.find(function (s) {
+    return s.host === hostname && s.paths.indexOf(location.pathname) !== -1;
+  });
+  if (!site) return;
 
-  // Homepage only. The match patterns already narrow this down, but a query
-  // string can slip past them, so check the path directly.
-  if (location.pathname !== '/') return;
+  const PROMPT = site.prompt;
+  // sessionStorage is per-origin, so the id only guards against a site
+  // gaining a second entry later.
+  const FLAG = 'intent-gate-passed:' + site.id;
+
   if (ONCE_PER_TAB && read(FLAG)) return;
 
   // Page-level CSS does two things only: blank the page, and pin our host
   // element. Everything else lives inside the shadow root, out of reach of
-  // Reddit's stylesheets — which load after this one and would otherwise win
-  // the cascade on shared selectors like `button`.
+  // the page's own stylesheets — which load after this one and would otherwise
+  // win the cascade on shared selectors like `button`.
   const pageStyle = document.createElement('style');
   pageStyle.textContent = `
     html { visibility: hidden !important; overflow: hidden !important; }
-    #rd-gate {
+    #intent-gate {
       visibility: visible !important;
       position: fixed !important; inset: 0 !important;
       z-index: 2147483647 !important; display: block !important;
@@ -55,7 +85,7 @@
 
   // <body> does not exist yet at document-start, but <html> does.
   const host = document.createElement('div');
-  host.id = 'rd-gate';
+  host.id = 'intent-gate';
   const root = host.attachShadow({ mode: 'closed' });
 
   // Inherited properties (font, color, line-height, letter-spacing) still
