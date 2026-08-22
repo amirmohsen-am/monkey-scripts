@@ -10,7 +10,7 @@ Personal userscripts — small tweaks to sites I use, run by
 | Script | What it does | Install |
 |---|---|---|
 | `intention-gate.user.js` | Covers the **Reddit homepage** and the **X feed** (`x.com/` and `x.com/home`) before they render, with a terminal-style prompt. Requires `y` (or clicking continue), then waits 5 seconds before revealing the page; `n` or Esc aborts. Once per tab, per site — reloads and in-tab navigation stay quiet, a new tab re-gates. | [install](https://raw.githubusercontent.com/amirmohsen-am/monkey-scripts/main/intention-gate.user.js) |
-| `lichess-cooldown.user.js` | Holds lichess's **New opponent** button for 5 seconds after a game ends, dimming it and drawing the countdown on the button itself with a fill that drains as the timer runs. Rematch and Analysis board are left alone. | [install](https://raw.githubusercontent.com/amirmohsen-am/monkey-scripts/main/lichess-cooldown.user.js) |
+| `lichess-cooldown.user.js` | Holds lichess's **New opponent** button for 15 seconds after a game ends, dimming it and drawing the countdown on the button itself with a fill that drains as the timer runs. Rematch and Analysis board are left alone. | [install](https://raw.githubusercontent.com/amirmohsen-am/monkey-scripts/main/lichess-cooldown.user.js) |
 
 ## Installing
 
@@ -54,7 +54,7 @@ script never runs there in the first place.
 And in `lichess-cooldown.user.js`:
 
 ```js
-const DELAY_SECONDS = 5;                          // hold before the button arms
+const DELAY_SECONDS = 15;                         // hold before the button arms
 const SELECTOR      = '.follow-up .new-opponent'; // lichess's post-game button
 const SHOW_FILL     = true;                       // false = countdown number only
 ```

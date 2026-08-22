@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Lichess Cooldown
 // @namespace    https://github.com/amirmohsen-am/monkey-scripts
-// @version      1.0.0
-// @description  Holds the "New opponent" button for 5 seconds after a game, with the countdown drawn on the button
+// @version      1.1.0
+// @description  Holds the "New opponent" button for 15 seconds after a game, with the countdown drawn on the button
 // @author       amirmohsen-am
 // @match        https://lichess.org/*
 // @run-at       document-start
@@ -17,7 +17,7 @@
 
   /* ------------------------------ config ------------------------------ */
 
-  const DELAY_SECONDS = 5;                          // hold before the button arms
+  const DELAY_SECONDS = 15;                         // hold before the button arms
   const SELECTOR      = '.follow-up .new-opponent'; // lichess's post-game button
   const SHOW_FILL     = true;                       // false = countdown number only
 
@@ -100,7 +100,7 @@
     requestAnimationFrame(function tick(now) {
       // Elapsed time comes from the clock, not from counting frames. A
       // backgrounded tab stops painting, and on return this computes the real
-      // elapsed time and finishes rather than owing another five seconds.
+      // elapsed time and finishes rather than owing the full wait again.
       const progress = Math.min((now - started) / (DELAY_SECONDS * 1000), 1);
       const left = Math.max(Math.ceil(DELAY_SECONDS - progress * DELAY_SECONDS), 0);
 
