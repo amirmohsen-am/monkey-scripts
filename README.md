@@ -10,6 +10,7 @@ Personal userscripts — small tweaks to sites I use, run by
 | Script | What it does | Install |
 |---|---|---|
 | `intention-gate.user.js` | Covers the **Reddit homepage** and the **X feed** (`x.com/` and `x.com/home`) before they render, with a terminal-style prompt. Requires `y` (or clicking continue), then waits 5 seconds before revealing the page; `n` or Esc aborts. Once per tab, per site — reloads and in-tab navigation stay quiet, a new tab re-gates. | [install](https://raw.githubusercontent.com/amirmohsen-am/monkey-scripts/main/intention-gate.user.js) |
+| `lichess-cooldown.user.js` | Holds lichess's **New opponent** button for 5 seconds after a game ends, dimming it and drawing the countdown on the button itself with a fill that drains as the timer runs. Rematch and Analysis board are left alone. | [install](https://raw.githubusercontent.com/amirmohsen-am/monkey-scripts/main/lichess-cooldown.user.js) |
 
 ## Installing
 
@@ -50,18 +51,31 @@ worth gating — deep links (a post, a profile) are deliberately left alone.
 Adding a site needs a matching pair of `@match` lines in the header too, or the
 script never runs there in the first place.
 
+And in `lichess-cooldown.user.js`:
+
+```js
+const DELAY_SECONDS = 5;                          // hold before the button arms
+const SELECTOR      = '.follow-up .new-opponent'; // lichess's post-game button
+const SHOW_FILL     = true;                       // false = countdown number only
+```
+
 ## Developing
 
-- **`test/`** — an isolation test. The page applies deliberately hostile CSS of
-  the kind Reddit uses, so a broken gate is obvious:
+- **`test/`** — two mock pages, served together:
 
   ```sh
-  python3 -m http.server 8765 -d test   # then open http://localhost:8765/
+  python3 -m http.server 8765 -d test
   ```
 
-  It must be served over HTTP at path `/` on `localhost`, which `SITES` carries
-  an entry for. That entry is inert in a real install — no `@match` covers
-  localhost, so the extension never runs the script there.
+  - `/` (`index.html`) — isolation test for the gate. Applies deliberately
+    hostile CSS of the kind Reddit uses, so a broken gate is obvious. It must be
+    served at path `/` on `localhost`, which `SITES` carries an entry for. That
+    entry is inert in a real install — no `@match` covers localhost, so the
+    extension never runs the script there.
+  - `/lichess.html` — stands in for a lichess round page. Injects the follow-up
+    buttons *after* load, so the cooldown's MutationObserver path is exercised
+    rather than just the initial scan, and can fake a framework re-render
+    mid-countdown.
 
 Fastest edit loop is Tampermonkey's built-in editor: paste the script body in,
 save, reload. When it's right, copy it back into the repo file, bump
@@ -72,6 +86,10 @@ save, reload. When it's right, copy it back into the repo file, bump
 
 - Plain JS, `@grant none`, no `@require` — so the same file runs unmodified
   under Tampermonkey, Violentmonkey, and the iOS Safari managers.
-- UI renders inside a **shadow root**. Page stylesheets load after the script
-  and would otherwise override shared selectors like `button`.
+- UI a script *owns* renders inside a **shadow root**. Page stylesheets load
+  after the script and would otherwise override shared selectors like `button`.
+  Restyling a site's *own* element is the exception — that needs a page
+  stylesheet, scoped tightly to that element (see `lichess-cooldown.user.js`,
+  which drives everything off one `data-cooldown` attribute so releasing the
+  button is just removing it).
 - Bump `@version` on every push, or nothing auto-updates.

@@ -1,0 +1,94 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>lichess cooldown test</title>
+<!--
+  Stands in for a lichess round page. Two things are worth exercising here and
+  are awkward to trigger on the real site: the button arriving *after* load
+  (the MutationObserver path, which is how a real game ends), and a framework
+  re-render landing mid-countdown, since lichess patches this view with
+  snabbdom.
+-->
+<style>
+  body { margin: 0; padding: 32px; background: #2e2a24; color: #bab5b0;
+         font: 14px/1.6 system-ui, sans-serif; }
+  .panel { max-width: 640px; margin: 0 auto; }
+  /* Roughly lichess's .fbt: full-width, flat, no border. */
+  .follow-up { display: flex; flex-direction: column; margin: 20px 0; }
+  .fbt { display: block; width: 100%; padding: 14px; border: none;
+         background: #3d3936; color: #bab5b0; font-size: 15px;
+         text-transform: uppercase; cursor: pointer; text-align: center; }
+  .fbt + .fbt { margin-top: 2px; }
+  .fbt:hover { background: #4a4542; }
+  .ctl { padding: 6px 12px; margin-right: 8px; font-size: 13px; }
+  code { background: #3d3936; padding: 1px 5px; }
+  .log { margin-top: 20px; padding: 10px; background: #262320; min-height: 3em;
+         font: 12px/1.7 ui-monospace, Menlo, monospace; white-space: pre-wrap; }
+</style>
+<script src="lichess-cooldown.user.js"></script>
+
+<div class="panel">
+  <h3>lichess cooldown test</h3>
+
+  <p>
+    <button class="ctl" id="end">end game</button>
+    <button class="ctl" id="patch">re-render (fake snabbdom patch)</button>
+    <button class="ctl" id="reset">reset</button>
+  </p>
+
+  <div id="zone"></div>
+
+  <p><strong>Pass:</strong> the button appears already dimmed, reading
+    <code>NEW OPPONENT (5)</code>, with a grey fill that drains left to right.
+    Clicking it does nothing, and neither does Tab-to-focus + Enter — the log
+    stays empty. At zero the dimming and the number vanish and a click logs.
+    <em>Re-render</em> mid-countdown must not disturb the countdown.
+    <strong>Fail:</strong> no number, no fill, clicks land during the hold, or
+    the countdown resets/stops after a re-render.</p>
+
+  <div class="log" id="log"></div>
+</div>
+
+<script>
+  const zone = document.getElementById('zone');
+  const log  = document.getElementById('log');
+
+  function say(text) {
+    log.textContent += new Date().toLocaleTimeString() + '  ' + text + '\n';
+  }
+
+  // The real button arrives ~a moment after the game ends, not on load.
+  document.getElementById('end').addEventListener('click', function () {
+    zone.textContent = '';
+    say('game over — follow-up in 800ms');
+    setTimeout(function () {
+      const wrap = document.createElement('div');
+      wrap.className = 'follow-up';
+      wrap.innerHTML =
+        '<button class="fbt rematch">Rematch</button>' +
+        '<button class="fbt new-opponent">New opponent</button>' +
+        '<a class="fbt" href="#">Analysis board</a>';
+      // Same shape as lichess: the handler is bound on the element itself, so
+      // the script has to stop the event before it gets there.
+      wrap.querySelector('.new-opponent')
+          .addEventListener('click', function () { say('NEW OPPONENT FIRED'); });
+      wrap.querySelector('.rematch')
+          .addEventListener('click', function () { say('rematch fired (never gated)'); });
+      zone.appendChild(wrap);
+    }, 800);
+  });
+
+  // snabbdom leaves a patched element in place and only touches what its own
+  // vnodes declare — the countdown state must survive that.
+  document.getElementById('patch').addEventListener('click', function () {
+    const button = zone.querySelector('.new-opponent');
+    if (!button) return say('nothing to patch');
+    button.textContent = 'New opponent';
+    button.className = 'fbt new-opponent';
+    say('patched (text + class rewritten)');
+  });
+
+  document.getElementById('reset').addEventListener('click', function () {
+    zone.textContent = '';
+    log.textContent = '';
+  });
+</script>

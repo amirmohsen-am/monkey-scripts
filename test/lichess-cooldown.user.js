@@ -1,0 +1,1 @@
+../lichess-cooldown.user.js
