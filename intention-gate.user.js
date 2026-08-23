@@ -184,9 +184,11 @@
     frame = requestAnimationFrame(function tick(now) {
       const progress = Math.min((now - started) / (DELAY_SECONDS * 1000), 1);
       const left = Math.max(Math.ceil(DELAY_SECONDS - progress * DELAY_SECONDS), 0);
-      const filled = Math.round(progress * 10);
+      // One cell per second, filled off whole seconds elapsed rather than the
+      // raw progress, so the bar ticks in lockstep with the counter beside it.
+      const filled = DELAY_SECONDS - left;
 
-      bar.textContent = '[' + '#'.repeat(filled) + ' '.repeat(10 - filled) + '] ' + left + 's';
+      bar.textContent = '[' + '#'.repeat(filled) + ' '.repeat(left) + '] ' + left + 's';
 
       if (progress < 1) frame = requestAnimationFrame(tick);
       else reveal();
