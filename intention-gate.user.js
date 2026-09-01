@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Intention Gate
 // @namespace    https://github.com/amirmohsen-am/monkey-scripts
-// @version      1.2.0
-// @description  Requires a deliberate keypress + 5s wait before Reddit or X is revealed
+// @version      1.3.0
+// @description  Requires a deliberate keypress + an unbroken, focused wait before Reddit, X or the lichess lobby is revealed
 // @author       amirmohsen-am
 // @match        https://www.reddit.com/
 // @match        https://www.reddit.com/?*
@@ -16,6 +16,8 @@
 // @match        https://www.x.com/?*
 // @match        https://www.x.com/home
 // @match        https://www.x.com/home?*
+// @match        https://lichess.org/
+// @match        https://lichess.org/?*
 // @run-at       document-start
 // @noframes
 // @grant        none
@@ -28,7 +30,7 @@
 
   /* ------------------------------ config ------------------------------ */
 
-  const DELAY_SECONDS = 5;                              // wait after confirming
+  const DELAY_SECONDS = 5;                              // wait after confirming, unless a site overrides it
   const EXIT_URL      = 'about:blank';                  // where abort goes with no history
   const ONCE_PER_TAB  = true;                           // false = gate every single load
   const WAITING       = '> opening in';
@@ -36,15 +38,22 @@
 
   // One entry per gated site. `host` is matched with any leading "www."
   // stripped; `paths` lists the feeds worth gating — deep links (a specific
-  // post, a profile) are left alone, since the point is to stop aimless
-  // scrolling, not to block the site. Adding a site here also needs a matching
+  // post, a profile, a game in progress) are left alone, since the point is to
+  // stop aimless opening, not to block the site. `seconds` and `once` override
+  // the defaults above for that site. Adding a site here also needs a matching
   // pair of @match lines in the header above.
   const SITES = [
-    { id: 'reddit', host: 'reddit.com', paths: ['/'],          prompt: '> confirm intent to open reddit' },
-    { id: 'x',      host: 'x.com',      paths: ['/', '/home'], prompt: '> confirm intent to open x' },
+    { id: 'reddit',  host: 'reddit.com',  paths: ['/'],          prompt: '> confirm intent to open reddit' },
+    { id: 'x',       host: 'x.com',       paths: ['/', '/home'], prompt: '> confirm intent to open x' },
+    // The lobby is the one lichess page that starts games, and it is worth a
+    // longer wait; `once: false` re-gates it on every load, so coming back for
+    // another game costs the wait again. lichess-cooldown.user.js holds the
+    // post-game "New opponent" button on the round pages.
+    { id: 'lichess', host: 'lichess.org', paths: ['/'],          prompt: '> confirm intent to open lichess',
+      seconds: 15, once: false },
     // For test/index.html only. Inert in a real install: no @match covers
     // localhost, so the gate can never fire there via the extension.
-    { id: 'test',   host: 'localhost',  paths: ['/'],          prompt: '> confirm intent to open reddit' },
+    { id: 'test',    host: 'localhost',   paths: ['/'],          prompt: '> confirm intent to open reddit' },
   ];
 
   /* -------------------------------------------------------------------- */
@@ -59,12 +68,14 @@
   });
   if (!site) return;
 
-  const PROMPT = site.prompt;
+  const PROMPT  = site.prompt;
+  const SECONDS = site.seconds || DELAY_SECONDS;
+  const ONCE    = site.once === undefined ? ONCE_PER_TAB : site.once;
   // sessionStorage is per-origin, so the id only guards against a site
   // gaining a second entry later.
   const FLAG = 'intent-gate-passed:' + site.id;
 
-  if (ONCE_PER_TAB && read(FLAG)) return;
+  if (ONCE && read(FLAG)) return;
 
   // Page-level CSS does two things only: blank the page, and pin our host
   // element. Everything else lives inside the shadow root, out of reach of
@@ -170,6 +181,9 @@
 
   function startCountdown() {
     if (counting) return;
+    // Only a focused wait counts, so a gate confirmed in a background tab
+    // cannot start draining before you are actually looking at it.
+    if (!focused()) return;
     counting = true;
 
     clearInterval(typer);
@@ -180,13 +194,16 @@
     bar.className = 'bar';
     stage.appendChild(bar);
 
+    document.addEventListener('visibilitychange', onFocusChange);
+    window.addEventListener('blur', onFocusChange);
+
     const started = performance.now();
     frame = requestAnimationFrame(function tick(now) {
-      const progress = Math.min((now - started) / (DELAY_SECONDS * 1000), 1);
-      const left = Math.max(Math.ceil(DELAY_SECONDS - progress * DELAY_SECONDS), 0);
+      const progress = Math.min((now - started) / (SECONDS * 1000), 1);
+      const left = Math.max(Math.ceil(SECONDS - progress * SECONDS), 0);
       // One cell per second, filled off whole seconds elapsed rather than the
       // raw progress, so the bar ticks in lockstep with the counter beside it.
-      const filled = DELAY_SECONDS - left;
+      const filled = SECONDS - left;
 
       bar.textContent = '[' + '#'.repeat(filled) + ' '.repeat(left) + '] ' + left + 's';
 
@@ -195,10 +212,37 @@
     });
   }
 
+  function focused() {
+    return document.visibilityState === 'visible' && document.hasFocus();
+  }
+
+  // Leaving the tab or the window voids the wait outright rather than pausing
+  // it: the gate goes back to asking, and the next confirmation starts a fresh
+  // countdown. Waiting it out somewhere else is the loophole this closes —
+  // requestAnimationFrame stops in a hidden tab, but a visible window with the
+  // focus elsewhere would otherwise keep counting.
+  function onFocusChange() {
+    if (focused()) return;
+    stopCountdown();
+    stage.textContent = '';                      // the bar goes with the wait
+    render(PROMPT);                              // whole prompt back at once, not retyped
+    wrap.insertBefore(row, stage.nextSibling);   // back where the markup put it
+  }
+
+  // Leaves the stage alone: reveal() calls this too, and the filled bar should
+  // stay put under the fade rather than blink out a frame before it.
+  function stopCountdown() {
+    counting = false;
+    cancelAnimationFrame(frame);
+    document.removeEventListener('visibilitychange', onFocusChange);
+    window.removeEventListener('blur', onFocusChange);
+  }
+
   // The flag is only set here, at the end of the wait, so bailing out
   // mid-countdown does not buy a free pass on the next visit.
   function reveal() {
-    if (ONCE_PER_TAB) write(FLAG, '1');
+    stopCountdown();
+    if (ONCE) write(FLAG, '1');
     document.removeEventListener('keydown', onKey, true);
 
     // Unhide the page first, then fade the gate out over it.

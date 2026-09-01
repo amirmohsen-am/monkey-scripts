@@ -28,7 +28,19 @@
 <div class="card"><h3>fake page content</h3><p>Visible only after the gate finishes.</p></div>
 <div class="card"><h3>more content</h3><p>The hostile CSS above styles these too.</p></div>
 <p style="max-width:620px;margin:16px auto;font:13px/1.6 monospace;text-transform:none;letter-spacing:0">
-  Pass: black screen, green monospace, prompt types itself out, buttons are small
-  bordered rectangles. Fail: Comic Sans, red text, giant yellow pill buttons.
+  Pass (isolation): black screen, green monospace, prompt types itself out,
+  buttons are small bordered rectangles. Fail: Comic Sans, red text, giant
+  yellow pill buttons.
+</p>
+<p style="max-width:620px;margin:16px auto;font:13px/1.6 monospace;text-transform:none;letter-spacing:0">
+  Pass (focus rule): press y, then switch tab or click another window while the
+  bar is filling. The countdown is cancelled, not paused — the prompt and the
+  [y]/[n] buttons come straight back, and on return nothing is counting until
+  you press y again, which starts the full wait from the top. Fail: the bar
+  keeps filling while you are away, resumes where it left off, or the page is
+  revealed.
+</p>
+<p style="max-width:620px;margin:16px auto;font:13px/1.6 monospace;text-transform:none;letter-spacing:0">
   Note the once-per-tab flag applies here too — reload in a NEW tab to re-run.
+  The real lichess entry sets once:false, so that one re-gates on every load.
 </p>

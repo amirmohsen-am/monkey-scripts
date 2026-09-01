@@ -38,12 +38,21 @@
   <div id="zone"></div>
 
   <p><strong>Pass:</strong> the button appears already dimmed, reading
-    <code>NEW OPPONENT (15)</code>, counting down one second at a time.
-    Clicking it does nothing, and neither does Tab-to-focus + Enter — the log
-    stays empty. At zero the dimming and the number vanish and a click logs.
-    <em>Re-render</em> mid-countdown must not disturb the countdown.
-    <strong>Fail:</strong> no number, clicks land during the hold, or the
-    countdown resets/stops after a re-render.</p>
+    <code>NEW OPPONENT (15)</code>, and the number <em>sits still</em>. The
+    first click logs nothing and starts the countdown, one second at a time.
+    Clicks and Tab-to-focus + Enter stay dead all the way down. At zero the
+    dimming and the number vanish and a click logs.
+    <em>Re-render</em> mid-countdown must not disturb it.
+    <strong>Fail:</strong> no number, the count starts on its own, clicks land
+    during the hold, or the countdown resets/stops after a re-render.</p>
+
+  <p><strong>Pass (focus rule):</strong> start the countdown, then switch tab or
+    click another window at ~5s. The hold is <em>cancelled</em>, not rewound:
+    the button freezes back at <code>(15)</code> and nothing resumes on return
+    until you click again, which starts a full fresh wait. Only 15
+    uninterrupted, focused seconds arm it.
+    <strong>Fail:</strong> the count keeps running or resumes by itself while
+    you are away, or the button arms without a focused wait.</p>
 
   <div class="log" id="log"></div>
 </div>

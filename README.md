@@ -9,8 +9,8 @@ Personal userscripts — small tweaks to sites I use, run by
 
 | Script | What it does | Install |
 |---|---|---|
-| `intention-gate.user.js` | Covers the **Reddit homepage** and the **X feed** (`x.com/` and `x.com/home`) before they render, with a terminal-style prompt. Requires `y` (or clicking continue), then waits 5 seconds before revealing the page; `n` or Esc aborts. Once per tab, per site — reloads and in-tab navigation stay quiet, a new tab re-gates. | [install](https://raw.githubusercontent.com/amirmohsen-am/monkey-scripts/main/intention-gate.user.js) |
-| `lichess-cooldown.user.js` | Holds lichess's **New opponent** button for 15 seconds after a game ends, dimming it and counting the seconds down on the button itself. Rematch and Analysis board are left alone. | [install](https://raw.githubusercontent.com/amirmohsen-am/monkey-scripts/main/lichess-cooldown.user.js) |
+| `intention-gate.user.js` | Covers the **Reddit homepage**, the **X feed** (`x.com/` and `x.com/home`) and the **lichess lobby** (`lichess.org/`) before they render, with a terminal-style prompt. Requires `y` (or clicking continue), then a wait before revealing the page — 5 seconds for Reddit and X, 15 for lichess; `n` or Esc aborts. Once per tab for Reddit and X; lichess re-gates on every load. Leaving the tab or the window mid-countdown cancels it back to the prompt. | [install](https://raw.githubusercontent.com/amirmohsen-am/monkey-scripts/main/intention-gate.user.js) |
+| `lichess-cooldown.user.js` | Holds lichess's **New opponent** button after a game ends: it arrives dimmed, reading `(15)`, and the first click on it is swallowed and starts the countdown. Only 15 unbroken, focused seconds arm it — leaving the tab or the window cancels the wait, and coming back means clicking again. Rematch and Analysis board are left alone. | [install](https://raw.githubusercontent.com/amirmohsen-am/monkey-scripts/main/lichess-cooldown.user.js) |
 
 ## Installing
 
@@ -31,7 +31,7 @@ Each script starts with a `config` block — delays, copy, and toggles live ther
 so the common tweaks need no code reading. For example, in `intention-gate.user.js`:
 
 ```js
-const DELAY_SECONDS = 5;                              // wait after confirming
+const DELAY_SECONDS = 5;                              // wait after confirming, unless a site overrides it
 const EXIT_URL      = 'about:blank';                  // where abort goes with no history
 const ONCE_PER_TAB  = true;                           // false = gate every single load
 const TYPE_MS       = 32;                             // typing speed, ms per character
@@ -41,21 +41,26 @@ The gated sites live in the same block, one entry each:
 
 ```js
 const SITES = [
-  { id: 'reddit', host: 'reddit.com', paths: ['/'],          prompt: '> confirm intent to open reddit' },
-  { id: 'x',      host: 'x.com',      paths: ['/', '/home'], prompt: '> confirm intent to open x' },
+  { id: 'reddit',  host: 'reddit.com',  paths: ['/'],          prompt: '> confirm intent to open reddit' },
+  { id: 'x',       host: 'x.com',       paths: ['/', '/home'], prompt: '> confirm intent to open x' },
+  { id: 'lichess', host: 'lichess.org', paths: ['/'],          prompt: '> confirm intent to open lichess',
+    seconds: 15, once: false },
 ];
 ```
 
 `host` is matched with any leading `www.` stripped, and `paths` lists the feeds
-worth gating — deep links (a post, a profile) are deliberately left alone.
-Adding a site needs a matching pair of `@match` lines in the header too, or the
-script never runs there in the first place.
+worth gating — deep links (a post, a profile, a game in progress) are
+deliberately left alone. `seconds` and `once` override the two defaults above
+for that site: lichess waits 15 seconds and re-gates on every load, so coming
+back to the lobby for another game costs the wait again. Adding a site needs a
+matching pair of `@match` lines in the header too, or the script never runs
+there in the first place.
 
 And in `lichess-cooldown.user.js`:
 
 ```js
-const DELAY_SECONDS = 15;                         // hold before the button arms
-const SELECTOR      = '.follow-up .new-opponent'; // lichess's post-game button
+const DELAY_SECONDS   = 15;                         // hold before the button arms
+const BUTTON_SELECTOR = '.follow-up .new-opponent'; // lichess's post-game button
 ```
 
 ## Developing
@@ -76,6 +81,11 @@ const SELECTOR      = '.follow-up .new-opponent'; // lichess's post-game button
     rather than just the initial scan, and can fake a framework re-render
     mid-countdown.
 
+  Both pages carry a **focus rule** check: start a countdown, then switch tab or
+  click another window. Neither countdown may survive that — the gate drops back
+  to its prompt, the button freezes back at `(15)`, and only a fresh
+  confirmation starts a new wait.
+
 Fastest edit loop is Tampermonkey's built-in editor: paste the script body in,
 save, reload. When it's right, copy it back into the repo file, bump
 `@version`, and push. Keep only one copy installed — a dev copy in the editor
@@ -91,4 +101,8 @@ save, reload. When it's right, copy it back into the repo file, bump
   stylesheet, scoped tightly to that element (see `lichess-cooldown.user.js`,
   which keeps all its state in one `data-cooldown` attribute, so releasing the
   button is just removing it).
+- A wait only counts while `document.visibilityState === 'visible' &&
+  document.hasFocus()`. Both scripts cancel outright on
+  `visibilitychange`/`blur` rather than pausing, since a wait you can serve in
+  another tab is not a wait at all.
 - Bump `@version` on every push, or nothing auto-updates.
