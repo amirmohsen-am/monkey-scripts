@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Intention Gate
 // @namespace    https://github.com/amirmohsen-am/monkey-scripts
-// @version      1.3.2
+// @version      1.3.3
 // @description  Requires a deliberate keypress or tap + an unbroken, focused wait before Reddit, X or the lichess lobby is revealed
 // @author       amirmohsen-am
 // @match        https://www.reddit.com/
@@ -89,10 +89,14 @@
   const SECONDS = site.seconds || DELAY_SECONDS;
   const ONCE    = site.once === undefined ? ONCE_PER_TAB : site.once;
   // sessionStorage is per-origin, so the id only guards against a site
-  // gaining a second entry later.
+  // gaining a second entry later. The value is a tab token, not a bare flag —
+  // see passed() for why a stored pass alone is not enough.
   const FLAG = 'intent-gate-passed:' + site.id;
+  // Declared up here, not down with the helpers: passed() runs on the next
+  // line, and a `const` is not readable before its declaration is reached.
+  const TAB_TAG = 'intent-gate-tab:';
 
-  if (ONCE && read(FLAG)) return;
+  if (ONCE && passed()) return;
 
   // Page-level CSS does two things only: blank the page, and pin our host
   // element. Everything else lives inside the shadow root, out of reach of
@@ -289,7 +293,7 @@
   // mid-countdown does not buy a free pass on the next visit.
   function reveal() {
     stopCountdown();
-    if (ONCE) write(FLAG, '1');
+    if (ONCE) write(FLAG, tagTab());
     document.removeEventListener('keydown', onKey, true);
 
     // Unhide the page first, then fade the gate out over it.
@@ -315,8 +319,50 @@
     }
   }
 
-  // sessionStorage is per-tab and survives reloads: a new tab re-gates, the
-  // current one stays quiet. It also throws outright under some privacy
+  // "Once per tab" rests on sessionStorage, which is per-tab everywhere except
+  // at the moment a tab is opened from another one: the new tab starts with a
+  // *copy* of the opener's whole session storage, all origins included. Safari
+  // does this for every link opened in a new tab, which on iOS is most of them
+  // — the tab arrived already carrying the pass, so the gate never showed.
+  //
+  // window.name is the per-tab value that is not copied: a new tab starts with
+  // it empty. So the pass is stored as a token that has to match the tag on
+  // this tab, and an inherited pass names a tab that is not this one.
+  function passed() {
+    const token = read(FLAG);
+    if (!token) return false;
+    // A reload or a back/forward is unambiguously this same tab, and stays
+    // passing even where the page has since taken window.name for itself.
+    if (revisit()) return true;
+    return tabToken() === token;
+  }
+
+  function revisit() {
+    try {
+      const nav = performance.getEntriesByType('navigation')[0];
+      return !!nav && (nav.type === 'reload' || nav.type === 'back_forward');
+    } catch (e) { return false; }
+  }
+
+  function tabToken() {
+    const name = String(window.name || '');
+    return name.indexOf(TAB_TAG) === 0 ? name.slice(TAB_TAG.length) : null;
+  }
+
+  // Tagging is best effort: the page may already own window.name, or overwrite
+  // ours later. A lost tag only costs one extra gate on the next load in this
+  // tab — it can never hand out a free pass.
+  function tagTab() {
+    const existing = tabToken();
+    if (existing) return existing;
+    const token = String(Date.now()) + '-' + Math.random().toString(36).slice(2);
+    if (!window.name) {
+      try { window.name = TAB_TAG + token; } catch (e) { /* ignore */ }
+    }
+    return token;
+  }
+
+  // sessionStorage survives reloads, and throws outright under some privacy
   // settings, so neither access is allowed to break the script.
   function read(key) {
     try { return sessionStorage.getItem(key); } catch (e) { return null; }

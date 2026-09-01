@@ -116,4 +116,11 @@ save, reload. When it's right, copy it back into the repo file, bump
   document.hasFocus()`. Both scripts cancel outright on
   `visibilitychange`/`blur` rather than pausing, since a wait you can serve in
   another tab is not a wait at all.
+- "Once per tab" is not sessionStorage alone. A tab opened from another one
+  starts with a *copy* of the opener's whole session storage — Safari does this
+  for every link opened in a new tab, so on iOS most new tabs arrived already
+  holding the pass and were never gated. The pass is now a token that must
+  match a tag the gate writes into `window.name`, which a new tab does not
+  inherit. Tagging is best effort (a page may own `window.name`); losing the
+  tag only costs an extra gate, never a free pass.
 - Bump `@version` on every push, or nothing auto-updates.
