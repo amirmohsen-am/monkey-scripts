@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Intention Gate
 // @namespace    https://github.com/amirmohsen-am/monkey-scripts
-// @version      1.3.0
+// @version      1.3.1
 // @description  Requires a deliberate keypress + an unbroken, focused wait before Reddit, X or the lichess lobby is revealed
 // @author       amirmohsen-am
 // @match        https://www.reddit.com/
