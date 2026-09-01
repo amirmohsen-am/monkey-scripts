@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Intention Gate
 // @namespace    https://github.com/amirmohsen-am/monkey-scripts
-// @version      1.3.3
+// @version      1.3.4
 // @description  Requires a deliberate keypress or tap + an unbroken, focused wait before Reddit, X or the lichess lobby is revealed
 // @author       amirmohsen-am
 // @match        https://www.reddit.com/
@@ -147,10 +147,10 @@
         background: #33ff66; animation: blink 1s steps(1) infinite;
       }
       @keyframes blink { 50% { opacity: 0; } }
-      .stage:empty { display: none; }
       /* One cell per second, so a 15s bar is ~20 characters: it has to shrink
          with the screen or it runs off the side of a phone. */
       .bar { font-size: clamp(12px, 3.6vw, 20px); letter-spacing: .05em; white-space: pre; }
+      .bar:empty { display: none; }
       .row { display: flex; gap: 12px; flex-wrap: wrap; }
       button {
         font: inherit; font-size: 16px; padding: 12px 18px; min-height: 48px;
@@ -182,7 +182,7 @@
     </style>
     <div class="wrap">
       <div class="msg"></div>
-      <div class="stage"></div>
+      <div class="bar"></div>
       <div class="row">
         <button class="go"><span class="key">[y] </span>continue</button>
         <button class="out"><span class="key">[n] </span>abort</button>
@@ -192,18 +192,24 @@
   `;
   document.documentElement.appendChild(host);
 
-  const wrap  = root.querySelector('.wrap');
-  const msg   = root.querySelector('.msg');
-  const stage = root.querySelector('.stage');
-  const row   = root.querySelector('.row');
-  const go    = root.querySelector('.go');
-  const out   = root.querySelector('.out');
+  const wrap = root.querySelector('.wrap');
+  const msg  = root.querySelector('.msg');
+  const bar  = root.querySelector('.bar');
+  const go   = root.querySelector('.go');
+  const out  = root.querySelector('.out');
 
   let typer = null;
-  let frame = null;
+  let ticker = null;
   let counting = false;
 
   type(PROMPT);
+  // Nothing here checks that the page has focus first. Only a tap or a
+  // keypress starts a wait, and neither reaches a window you are not looking
+  // at. document.hasFocus() was the unreliable half of such a check: iOS
+  // Safari leaves it false for the first moment after a navigation, while the
+  // URL bar still holds focus — which is exactly while the prompt is still
+  // typing itself out, so an early tap was swallowed and the gate looked dead.
+  // The wait itself is still guarded, by onFocusChange below.
   go.addEventListener('click', startCountdown);
   out.addEventListener('click', leave);
   document.addEventListener('keydown', onKey, true);
@@ -228,9 +234,6 @@
 
   function startCountdown() {
     if (counting) return;
-    // Only a focused wait counts, so a gate confirmed in a background tab
-    // cannot start draining before you are actually looking at it.
-    if (!focused()) return;
     counting = true;
 
     clearInterval(typer);
@@ -241,26 +244,27 @@
     // just tapped, and the click that follows a tap would land on it.
     go.disabled = true;
 
-    const bar = document.createElement('div');
-    bar.className = 'bar';
-    stage.appendChild(bar);
-
     document.addEventListener('visibilitychange', onFocusChange);
     window.addEventListener('blur', onFocusChange);
 
+    // Seconds left come off the clock rather than off a count of ticks, so a
+    // throttled or delayed timer still shows the true time remaining and can
+    // never shorten the wait. The bar only changes once a second, so a timer
+    // is all it needs — a frame loop would redraw the same string 60 times a
+    // second to show it.
     const started = performance.now();
-    frame = requestAnimationFrame(function tick(now) {
-      const progress = Math.min((now - started) / (SECONDS * 1000), 1);
-      const left = Math.max(Math.ceil(SECONDS - progress * SECONDS), 0);
-      // One cell per second, filled off whole seconds elapsed rather than the
-      // raw progress, so the bar ticks in lockstep with the counter beside it.
-      const filled = SECONDS - left;
+    draw(SECONDS);
+    ticker = setInterval(function () {
+      const left = Math.max(Math.ceil((SECONDS * 1000 - (performance.now() - started)) / 1000), 0);
+      draw(left);
+      if (left === 0) reveal();
+    }, 250);
+  }
 
-      bar.textContent = '[' + '#'.repeat(filled) + ' '.repeat(left) + '] ' + left + 's';
-
-      if (progress < 1) frame = requestAnimationFrame(tick);
-      else reveal();
-    });
+  // One cell per second, filled off whole seconds left, so the bar ticks in
+  // lockstep with the counter beside it.
+  function draw(left) {
+    bar.textContent = '[' + '#'.repeat(SECONDS - left) + ' '.repeat(left) + '] ' + left + 's';
   }
 
   function focused() {
@@ -275,16 +279,16 @@
   function onFocusChange() {
     if (focused()) return;
     stopCountdown();
-    stage.textContent = '';                      // the bar goes with the wait
+    bar.textContent = '';                        // the bar goes with the wait
     render(PROMPT);                              // whole prompt back at once, not retyped
     go.disabled = false;                         // confirm live again, where it was
   }
 
-  // Leaves the stage alone: reveal() calls this too, and the filled bar should
-  // stay put under the fade rather than blink out a frame before it.
+  // Leaves the bar alone: reveal() calls this too, and a filled bar should stay
+  // put under the fade rather than blink out just before it.
   function stopCountdown() {
     counting = false;
-    cancelAnimationFrame(frame);
+    clearInterval(ticker);
     document.removeEventListener('visibilitychange', onFocusChange);
     window.removeEventListener('blur', onFocusChange);
   }

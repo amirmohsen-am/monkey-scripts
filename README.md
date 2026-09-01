@@ -115,7 +115,11 @@ save, reload. When it's right, copy it back into the repo file, bump
 - A wait only counts while `document.visibilityState === 'visible' &&
   document.hasFocus()`. Both scripts cancel outright on
   `visibilitychange`/`blur` rather than pausing, since a wait you can serve in
-  another tab is not a wait at all.
+  another tab is not a wait at all. That rule guards the wait, never the tap
+  that starts it: iOS Safari reports `hasFocus()` false for the first moment
+  after a navigation, while the URL bar still holds focus, so checking it up
+  front swallowed early taps and left the gate looking dead. A tap or a
+  keypress cannot reach a window you are not looking at anyway.
 - "Once per tab" is not sessionStorage alone. A tab opened from another one
   starts with a *copy* of the opener's whole session storage — Safari does this
   for every link opened in a new tab, so on iOS most new tabs arrived already
