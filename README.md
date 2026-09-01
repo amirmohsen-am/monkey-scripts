@@ -9,7 +9,7 @@ Personal userscripts — small tweaks to sites I use, run by
 
 | Script | What it does | Install |
 |---|---|---|
-| `intention-gate.user.js` | Covers the **Reddit homepage**, the **X feed** (`x.com/` and `x.com/home`) and the **lichess lobby** (`lichess.org/`) before they render, with a terminal-style prompt. Requires `y` (or clicking continue), then a wait before revealing the page — 5 seconds for Reddit and X, 15 for lichess; `n` or Esc aborts. Once per tab for Reddit and X; lichess re-gates on every load, except the lobby it only passes through on its way into a game. Leaving the tab or the window mid-countdown cancels it back to the prompt. | [install](https://raw.githubusercontent.com/amirmohsen-am/monkey-scripts/main/intention-gate.user.js) |
+| `intention-gate.user.js` | Covers the **Reddit homepage**, the **X feed** (`x.com/` and `x.com/home`) and the **lichess lobby** (`lichess.org/`) before they render, with a terminal-style prompt. Requires `y` (or tapping continue), then a wait before revealing the page — 5 seconds for Reddit and X, 15 for lichess; `n`, Esc or the abort button leaves, and abort stays reachable throughout the countdown, so a phone with no Esc key is never stuck. Once per tab for Reddit and X; lichess re-gates on every load, except the lobby it only passes through on its way into a game. Leaving the tab or the window mid-countdown cancels it back to the prompt. | [install](https://raw.githubusercontent.com/amirmohsen-am/monkey-scripts/main/intention-gate.user.js) |
 | `lichess-cooldown.user.js` | Holds lichess's **New opponent** button after a game ends: it arrives dimmed, reading `(15)`, and the first click on it is swallowed and starts the countdown. Only 15 unbroken, focused seconds arm it — leaving the tab or the window cancels the wait, and coming back means clicking again. Rematch and Analysis board are left alone. | [install](https://raw.githubusercontent.com/amirmohsen-am/monkey-scripts/main/lichess-cooldown.user.js) |
 
 ## Installing
@@ -106,6 +106,12 @@ save, reload. When it's right, copy it back into the repo file, bump
   stylesheet, scoped tightly to that element (see `lichess-cooldown.user.js`,
   which keeps all its state in one `data-cooldown` attribute, so releasing the
   button is just removing it).
+- The gate is usable by thumb as well as by keyboard: finger-sized buttons,
+  key prefixes and the `esc`/`n` hint swapped out under `@media (pointer:
+  coarse)`, and **abort stays live and stationary for the whole countdown** —
+  it is the only way out where there is no Esc key. Confirm is dimmed rather
+  than removed during the wait, so nothing slides under the finger that just
+  tapped it and inherits the click.
 - A wait only counts while `document.visibilityState === 'visible' &&
   document.hasFocus()`. Both scripts cancel outright on
   `visibilitychange`/`blur` rather than pausing, since a wait you can serve in

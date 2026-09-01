@@ -1,5 +1,6 @@
 <!doctype html>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>gate isolation test</title>
 <!--
   Served at path "/" so the script's homepage guard passes unmodified.
@@ -31,6 +32,14 @@
   Pass (isolation): black screen, green monospace, prompt types itself out,
   buttons are small bordered rectangles. Fail: Comic Sans, red text, giant
   yellow pill buttons.
+</p>
+<p style="max-width:620px;margin:16px auto;font:13px/1.6 monospace;text-transform:none;letter-spacing:0">
+  Pass (touch): in a phone-sized window with touch emulation on, the buttons are
+  finger-sized, the "[y]"/"[n]" prefixes are gone and the hint reads "tap abort
+  to leave". Press continue and abort stays live and in exactly the same place
+  for the whole wait — nothing may slide under your finger — while continue only
+  dims. Fail: abort disappears or moves once the countdown starts, the prompt or
+  the bar runs off the side, or a button is under ~44px tall.
 </p>
 <p style="max-width:620px;margin:16px auto;font:13px/1.6 monospace;text-transform:none;letter-spacing:0">
   Pass (focus rule): press y, then switch tab or click another window while the

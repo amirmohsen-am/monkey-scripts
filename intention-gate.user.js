@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Intention Gate
 // @namespace    https://github.com/amirmohsen-am/monkey-scripts
-// @version      1.3.1
-// @description  Requires a deliberate keypress + an unbroken, focused wait before Reddit, X or the lichess lobby is revealed
+// @version      1.3.2
+// @description  Requires a deliberate keypress or tap + an unbroken, focused wait before Reddit, X or the lichess lobby is revealed
 // @author       amirmohsen-am
 // @match        https://www.reddit.com/
 // @match        https://www.reddit.com/?*
@@ -124,42 +124,66 @@
       .wrap {
         position: absolute; inset: 0;
         display: flex; flex-direction: column; justify-content: center;
-        gap: 26px; padding: 0 8vw;
+        gap: clamp(18px, 4vh, 26px);
+        /* Sized off the viewport so one rule covers a phone and a desktop, and
+           kept clear of the notch and the home indicator. env() is 0 without
+           viewport-fit=cover, which is the desktop case anyway. */
+        padding: max(24px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right))
+                 max(24px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
+        overflow-y: auto;              /* a short landscape phone can still reach the buttons */
         background: #000; color: #33ff66;
-        font: 400 22px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font: 400 clamp(17px, 4.6vw, 22px)/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
         letter-spacing: normal; word-spacing: normal; text-align: left;
         text-transform: none; font-variant: normal;
         transition: opacity .3s ease;
       }
-      .msg { min-height: 1.5em; white-space: pre-wrap; }
+      .msg { min-height: 1.5em; white-space: pre-wrap; overflow-wrap: anywhere; }
       .cur {
         display: inline-block; width: .6ch; height: 1.1em; vertical-align: -.15em;
         background: #33ff66; animation: blink 1s steps(1) infinite;
       }
       @keyframes blink { 50% { opacity: 0; } }
       .stage:empty { display: none; }
-      .bar { font-size: 20px; letter-spacing: .05em; white-space: pre; }
+      /* One cell per second, so a 15s bar is ~20 characters: it has to shrink
+         with the screen or it runs off the side of a phone. */
+      .bar { font-size: clamp(12px, 3.6vw, 20px); letter-spacing: .05em; white-space: pre; }
       .row { display: flex; gap: 12px; flex-wrap: wrap; }
       button {
-        font: inherit; font-size: 16px; padding: 8px 14px;
+        font: inherit; font-size: 16px; padding: 12px 18px; min-height: 48px;
         background: transparent; color: #33ff66;
         border: 1px solid #145c2a; border-radius: 2px;
         cursor: pointer; appearance: none; -webkit-appearance: none;
+        touch-action: manipulation;               /* no double-tap-to-zoom delay */
+        -webkit-tap-highlight-color: transparent;
         transition: background .12s ease, border-color .12s ease;
       }
-      button:hover { background: #0b2b16; border-color: #33ff66; }
+      @media (hover: hover) {
+        button:hover:not([disabled]) { background: #0b2b16; border-color: #33ff66; }
+      }
+      button:active:not([disabled]) { background: #0b2b16; border-color: #33ff66; }
       button:focus-visible { outline: 1px solid #33ff66; outline-offset: 2px; }
+      button[disabled] { opacity: .4; cursor: default; }
       .out { color: #2a8f45; }
       .hint { font-size: 13px; color: #1f7a38; }
+      /* Touch screens have no keys to press and no Esc to fall back on, so the
+         key prefixes come off and the hint points at the button instead. */
+      .tap { display: none; }
+      @media (pointer: coarse) {
+        .key { display: none; }
+        .keys { display: none; }
+        .tap { display: inline; }
+        .row { gap: 10px; }
+        button { flex: 1 1 40%; min-height: 54px; }
+      }
     </style>
     <div class="wrap">
       <div class="msg"></div>
       <div class="stage"></div>
       <div class="row">
-        <button class="go">[y] continue</button>
-        <button class="out">[n] abort</button>
+        <button class="go"><span class="key">[y] </span>continue</button>
+        <button class="out"><span class="key">[n] </span>abort</button>
       </div>
-      <div class="hint">esc or n to abort</div>
+      <div class="hint"><span class="keys">esc or n to abort</span><span class="tap">tap abort to leave</span></div>
     </div>
   `;
   document.documentElement.appendChild(host);
@@ -168,14 +192,16 @@
   const msg   = root.querySelector('.msg');
   const stage = root.querySelector('.stage');
   const row   = root.querySelector('.row');
+  const go    = root.querySelector('.go');
+  const out   = root.querySelector('.out');
 
   let typer = null;
   let frame = null;
   let counting = false;
 
   type(PROMPT);
-  root.querySelector('.go').addEventListener('click', startCountdown);
-  root.querySelector('.out').addEventListener('click', leave);
+  go.addEventListener('click', startCountdown);
+  out.addEventListener('click', leave);
   document.addEventListener('keydown', onKey, true);
 
   // Types the prompt out one character at a time, cursor trailing behind it.
@@ -205,7 +231,11 @@
 
     clearInterval(typer);
     render(WAITING);
-    row.remove();
+    // Abort stays live through the whole wait: Esc is the desktop way out, and
+    // a phone has no Esc to fall back on. Confirm is only dimmed, never
+    // removed — dropping it would slide abort sideways into the finger that
+    // just tapped, and the click that follows a tap would land on it.
+    go.disabled = true;
 
     const bar = document.createElement('div');
     bar.className = 'bar';
@@ -243,7 +273,7 @@
     stopCountdown();
     stage.textContent = '';                      // the bar goes with the wait
     render(PROMPT);                              // whole prompt back at once, not retyped
-    wrap.insertBefore(row, stage.nextSibling);   // back where the markup put it
+    go.disabled = false;                         // confirm live again, where it was
   }
 
   // Leaves the stage alone: reveal() calls this too, and the filled bar should
