@@ -40,8 +40,9 @@
   // stripped; `paths` lists the feeds worth gating — deep links (a specific
   // post, a profile, a game in progress) are left alone, since the point is to
   // stop aimless opening, not to block the site. `seconds` and `once` override
-  // the defaults above for that site. Adding a site here also needs a matching
-  // pair of @match lines in the header above.
+  // the defaults above for that site, and `via` lists query or hash markers
+  // that mean "the site sent me here mid-action". Adding a site here also needs
+  // a matching pair of @match lines in the header above.
   const SITES = [
     { id: 'reddit',  host: 'reddit.com',  paths: ['/'],          prompt: '> confirm intent to open reddit' },
     { id: 'x',       host: 'x.com',       paths: ['/', '/home'], prompt: '> confirm intent to open x' },
@@ -49,8 +50,15 @@
     // longer wait; `once: false` re-gates it on every load, so coming back for
     // another game costs the wait again. lichess-cooldown.user.js holds the
     // post-game "New opponent" button on the round pages.
+    //
+    // That button does not start a game itself: it sends you to the lobby
+    // carrying a pairing instruction — "/?hook_like=<gameId>" for a lobby game,
+    // "/#pool/3+2" for a quick pairing — and lichess bounces you into the new
+    // game a moment later. `via` lets those hand-offs through, since the wait
+    // was already served on the button; gating them only flashed the prompt
+    // over a page you never actually see.
     { id: 'lichess', host: 'lichess.org', paths: ['/'],          prompt: '> confirm intent to open lichess',
-      seconds: 15, once: false },
+      via: ['?hook_like=', '#pool/'], seconds: 15, once: false },
     // For test/index.html only. Inert in a real install: no @match covers
     // localhost, so the gate can never fire there via the extension.
     { id: 'test',    host: 'localhost',   paths: ['/'],          prompt: '> confirm intent to open reddit' },
@@ -67,6 +75,15 @@
     return s.host === hostname && s.paths.indexOf(location.pathname) !== -1;
   });
   if (!site) return;
+
+  // A `via` marker only passes when the site itself put it there: same-origin
+  // navigation carries a referrer, typing the URL by hand does not, so the
+  // markers cannot be used as a way in.
+  const arrived = location.search + location.hash;
+  const handedOver = (site.via || []).some(function (marker) {
+    return arrived.indexOf(marker) !== -1;
+  });
+  if (handedOver && document.referrer.indexOf('https://' + site.host + '/') === 0) return;
 
   const PROMPT  = site.prompt;
   const SECONDS = site.seconds || DELAY_SECONDS;
