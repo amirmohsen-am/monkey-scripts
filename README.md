@@ -9,7 +9,7 @@ Personal userscripts — small tweaks to sites I use, run by
 
 | Script | What it does | Install |
 |---|---|---|
-| `intention-gate.user.js` | Covers the **Reddit homepage**, the **X feed** (`x.com/` and `x.com/home`) and the **lichess lobby** (`lichess.org/`) before they render, with a terminal-style prompt. Requires `y` (or clicking continue), then a wait before revealing the page — 5 seconds for Reddit and X, 15 for lichess; `n` or Esc aborts. Once per tab for Reddit and X; lichess re-gates on every load. Leaving the tab or the window mid-countdown cancels it back to the prompt. | [install](https://raw.githubusercontent.com/amirmohsen-am/monkey-scripts/main/intention-gate.user.js) |
+| `intention-gate.user.js` | Covers the **Reddit homepage**, the **X feed** (`x.com/` and `x.com/home`) and the **lichess lobby** (`lichess.org/`) before they render, with a terminal-style prompt. Requires `y` (or clicking continue), then a wait before revealing the page — 5 seconds for Reddit and X, 15 for lichess; `n` or Esc aborts. Once per tab for Reddit and X; lichess re-gates on every load, except the lobby it only passes through on its way into a game. Leaving the tab or the window mid-countdown cancels it back to the prompt. | [install](https://raw.githubusercontent.com/amirmohsen-am/monkey-scripts/main/intention-gate.user.js) |
 | `lichess-cooldown.user.js` | Holds lichess's **New opponent** button after a game ends: it arrives dimmed, reading `(15)`, and the first click on it is swallowed and starts the countdown. Only 15 unbroken, focused seconds arm it — leaving the tab or the window cancels the wait, and coming back means clicking again. Rematch and Analysis board are left alone. | [install](https://raw.githubusercontent.com/amirmohsen-am/monkey-scripts/main/lichess-cooldown.user.js) |
 
 ## Installing
@@ -44,7 +44,7 @@ const SITES = [
   { id: 'reddit',  host: 'reddit.com',  paths: ['/'],          prompt: '> confirm intent to open reddit' },
   { id: 'x',       host: 'x.com',       paths: ['/', '/home'], prompt: '> confirm intent to open x' },
   { id: 'lichess', host: 'lichess.org', paths: ['/'],          prompt: '> confirm intent to open lichess',
-    seconds: 15, once: false },
+    via: ['?hook_like=', '#pool/'], seconds: 15, once: false },
 ];
 ```
 
@@ -52,7 +52,12 @@ const SITES = [
 worth gating — deep links (a post, a profile, a game in progress) are
 deliberately left alone. `seconds` and `once` override the two defaults above
 for that site: lichess waits 15 seconds and re-gates on every load, so coming
-back to the lobby for another game costs the wait again. Adding a site needs a
+back to the lobby for another game costs the wait again. `via` lists query or
+hash markers that mean the site itself sent you mid-action — lichess's **New
+opponent** button hands you to the lobby as `/?hook_like=<gameId>` or
+`/#pool/3+2` and bounces you into the next game, and that wait was already
+served on the button. A marker only passes with a same-site referrer, so typing
+one by hand is still gated. Adding a site needs a
 matching pair of `@match` lines in the header too, or the script never runs
 there in the first place.
 

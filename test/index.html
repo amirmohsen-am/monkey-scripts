@@ -42,5 +42,7 @@
 </p>
 <p style="max-width:620px;margin:16px auto;font:13px/1.6 monospace;text-transform:none;letter-spacing:0">
   Note the once-per-tab flag applies here too — reload in a NEW tab to re-run.
-  The real lichess entry sets once:false, so that one re-gates on every load.
+  The real lichess entry sets once:false, so that one re-gates on every load —
+  except when it is only being passed through on the way into a game, which its
+  via markers (?hook_like=, #pool/) let straight by.
 </p>
