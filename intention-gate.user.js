@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Intention Gate
 // @namespace    https://github.com/amirmohsen-am/monkey-scripts
-// @version      1.3.4
-// @description  Requires a deliberate keypress or tap + an unbroken, focused wait before Reddit, X or the lichess lobby is revealed
+// @version      1.4.0
+// @description  Requires a deliberate keypress or tap + an unbroken, focused wait before Reddit, X, Hacker News or the lichess lobby is revealed
 // @author       amirmohsen-am
 // @match        https://www.reddit.com/
 // @match        https://www.reddit.com/?*
@@ -16,6 +16,10 @@
 // @match        https://www.x.com/?*
 // @match        https://www.x.com/home
 // @match        https://www.x.com/home?*
+// @match        https://news.ycombinator.com/
+// @match        https://news.ycombinator.com/?*
+// @match        https://news.ycombinator.com/news
+// @match        https://news.ycombinator.com/news?*
 // @match        https://lichess.org/
 // @match        https://lichess.org/?*
 // @run-at       document-start
@@ -46,6 +50,8 @@
   const SITES = [
     { id: 'reddit',  host: 'reddit.com',  paths: ['/'],          prompt: '> confirm intent to open reddit' },
     { id: 'x',       host: 'x.com',       paths: ['/', '/home'], prompt: '> confirm intent to open x' },
+    // Hacker News serves the front page from both "/" and "/news".
+    { id: 'hn',      host: 'news.ycombinator.com', paths: ['/', '/news'], prompt: '> confirm intent to open hacker news' },
     // The lobby is the one lichess page that starts games, and it is worth a
     // longer wait; `once: false` re-gates it on every load, so coming back for
     // another game costs the wait again. lichess-cooldown.user.js holds the
