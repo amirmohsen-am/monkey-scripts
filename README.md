@@ -87,6 +87,9 @@ const BUTTON_SELECTOR = '.follow-up .new-opponent'; // lichess's post-game butto
     rather than just the initial scan, and can fake a framework re-render
     mid-countdown.
 
+  Each page loads its script through a symlink in `test/`, so it always runs
+  the working copy — just reload after an edit.
+
   Both pages carry a **focus rule** check: start a countdown, then switch tab or
   click another window. Neither countdown may survive that — the gate drops back
   to its prompt, the button freezes back at `(15)`, and only a fresh
