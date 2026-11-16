@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Intention Gate
 // @namespace    https://github.com/amirmohsen-am/monkey-scripts
-// @version      1.4.0.1
+// @version      1.4.0.2
 // @description  [DEBUG BUILD — logs to an on-screen badge] Requires a deliberate keypress or tap + an unbroken, focused wait before Reddit, X, Hacker News or the lichess lobby is revealed
 // @author       amirmohsen-am
 // @match        https://www.reddit.com/
@@ -103,14 +103,14 @@
     if (dbgHost) return;
     const st = document.createElement('style');
     st.textContent = '#intent-gate-debug { visibility: visible !important; position: fixed !important;' +
-      ' left: 0 !important; right: 0 !important; bottom: 0 !important; z-index: 2147483647 !important;' +
+      ' left: 0 !important; right: 0 !important; top: 0 !important; z-index: 2147483647 !important;' +
       ' display: block !important; pointer-events: none !important; }';
     document.documentElement.appendChild(st);
     dbgHost = document.createElement('div');
     dbgHost.id = 'intent-gate-debug';
     const r = dbgHost.attachShadow({ mode: 'closed' });
     r.innerHTML = '<style>' +
-      '.b{pointer-events:auto;margin:0 6px max(6px,env(safe-area-inset-bottom));background:#222;color:#ff0;' +
+      '.b{pointer-events:auto;margin:max(6px,env(safe-area-inset-top)) 6px 0;background:#222;color:#ff0;' +
       'font:11px/1.35 ui-monospace,Menlo,monospace;border:1px solid #ff0;border-radius:4px;' +
       'letter-spacing:normal;word-spacing:normal;text-transform:none;text-align:left;font-variant:normal}' +
       '.h{display:flex;gap:8px;align-items:center;padding:6px 8px}.h span{flex:1}' +
