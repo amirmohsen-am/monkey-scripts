@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Intention Gate
 // @namespace    https://github.com/amirmohsen-am/monkey-scripts
-// @version      1.4.0
-// @description  Requires a deliberate keypress or tap + an unbroken, focused wait before Reddit, X, Hacker News or the lichess lobby is revealed
+// @version      1.4.0.1
+// @description  [DEBUG BUILD — logs to an on-screen badge] Requires a deliberate keypress or tap + an unbroken, focused wait before Reddit, X, Hacker News or the lichess lobby is revealed
 // @author       amirmohsen-am
 // @match        https://www.reddit.com/
 // @match        https://www.reddit.com/?*
@@ -25,8 +25,8 @@
 // @run-at       document-start
 // @noframes
 // @grant        none
-// @downloadURL  https://raw.githubusercontent.com/amirmohsen-am/monkey-scripts/main/intention-gate.user.js
-// @updateURL    https://raw.githubusercontent.com/amirmohsen-am/monkey-scripts/main/intention-gate.user.js
+// @downloadURL  https://raw.githubusercontent.com/amirmohsen-am/monkey-scripts/debug-ios-gate/intention-gate.user.js
+// @updateURL    https://raw.githubusercontent.com/amirmohsen-am/monkey-scripts/debug-ios-gate/intention-gate.user.js
 // ==/UserScript==
 
 (function () {
@@ -70,6 +70,87 @@
     { id: 'test',    host: 'localhost',   paths: ['/'],          prompt: '> confirm intent to open reddit' },
   ];
 
+  /* ------------------------------ debug ------------------------------- */
+
+  // DEBUG BUILD. Every run appends lines to localStorage (survives new tabs,
+  // unlike sessionStorage) and shows them in a corner badge. Tap the badge to
+  // expand. A load with no lines at all means the script never ran.
+  const DBG_KEY = 'intent-gate-debug';
+  const DBG_MAX = 80;
+  const RUN = Math.random().toString(36).slice(2, 6);
+  let dbgHost = null, dbgBody = null, dbgHead = null, dbgOpen = false;
+
+  function dbgNav() {
+    try { const n = performance.getEntriesByType('navigation')[0]; return n ? n.type : 'none'; }
+    catch (e) { return 'err'; }
+  }
+  function dbgState() {
+    return 'ready=' + document.readyState + ' vis=' + document.visibilityState +
+      ' focus=' + document.hasFocus() + (document.prerendering ? ' PRERENDER' : '');
+  }
+  function dbgAll() {
+    try { return JSON.parse(localStorage.getItem(DBG_KEY) || '[]'); } catch (e) { return []; }
+  }
+  function dbg(event, extra) {
+    const line = new Date().toTimeString().slice(0, 8) + ' ' + RUN + ' +' +
+      Math.round(performance.now()) + 'ms ' + event + (extra ? ' ' + extra : '') + ' | ' + dbgState();
+    const all = dbgAll().concat(line).slice(-DBG_MAX);
+    try { localStorage.setItem(DBG_KEY, JSON.stringify(all)); } catch (e) { /* ignore */ }
+    try { console.log('[intent-gate]', line); } catch (e) { /* ignore */ }
+    dbgRender(all);
+  }
+  function dbgEnsure() {
+    if (dbgHost) return;
+    const st = document.createElement('style');
+    st.textContent = '#intent-gate-debug { visibility: visible !important; position: fixed !important;' +
+      ' left: 0 !important; right: 0 !important; bottom: 0 !important; z-index: 2147483647 !important;' +
+      ' display: block !important; pointer-events: none !important; }';
+    document.documentElement.appendChild(st);
+    dbgHost = document.createElement('div');
+    dbgHost.id = 'intent-gate-debug';
+    const r = dbgHost.attachShadow({ mode: 'closed' });
+    r.innerHTML = '<style>' +
+      '.b{pointer-events:auto;margin:0 6px max(6px,env(safe-area-inset-bottom));background:#222;color:#ff0;' +
+      'font:11px/1.35 ui-monospace,Menlo,monospace;border:1px solid #ff0;border-radius:4px;' +
+      'letter-spacing:normal;word-spacing:normal;text-transform:none;text-align:left;font-variant:normal}' +
+      '.h{display:flex;gap:8px;align-items:center;padding:6px 8px}.h span{flex:1}' +
+      'button{font:inherit;color:#ff0;background:#000;border:1px solid #ff0;padding:4px 8px}' +
+      'pre{display:none;margin:0;padding:0 8px 8px;max-height:55vh;overflow:auto;white-space:pre-wrap;word-break:break-all}' +
+      '.o pre{display:block}</style>' +
+      '<div class="b"><div class="h"><span></span><button class="c">clear</button><button class="t">log</button></div><pre></pre></div>';
+    const box = r.querySelector('.b');
+    dbgHead = r.querySelector('span');
+    dbgBody = r.querySelector('pre');
+    r.querySelector('.t').addEventListener('click', function () {
+      dbgOpen = !dbgOpen; box.className = dbgOpen ? 'b o' : 'b';
+      dbgBody.scrollTop = dbgBody.scrollHeight;
+    });
+    r.querySelector('.c').addEventListener('click', function () {
+      try { localStorage.removeItem(DBG_KEY); } catch (e) { /* ignore */ }
+      dbgRender([]);
+    });
+    document.documentElement.appendChild(dbgHost);
+  }
+  function dbgRender(all) {
+    try {
+      dbgEnsure();
+      dbgHead.textContent = 'gate dbg · run ' + RUN + ' · ' + all.length + ' lines';
+      dbgBody.textContent = all.join('\n');
+      dbgBody.scrollTop = dbgBody.scrollHeight;
+    } catch (e) { /* ignore */ }
+  }
+
+  dbg('start', 'nav=' + dbgNav() + ' url=' + location.pathname + location.search + location.hash +
+    ' ref=' + (document.referrer ? document.referrer.slice(0, 40) : 'none') + ' hist=' + history.length +
+    ' name=' + (!window.name ? 'empty' : String(window.name).indexOf('intent-gate-tab:') === 0 ? 'tagged' : 'other'));
+  ['visibilitychange', 'DOMContentLoaded', 'prerenderingchange'].forEach(function (t) {
+    document.addEventListener(t, function () { dbg('ev:' + t); });
+  });
+  ['focus', 'blur', 'load', 'pagehide'].forEach(function (t) {
+    window.addEventListener(t, function () { dbg('ev:' + t); });
+  });
+  window.addEventListener('pageshow', function (e) { dbg('ev:pageshow', 'persisted=' + e.persisted); });
+
   /* -------------------------------------------------------------------- */
 
   // The match patterns already narrow this down, but a query string can slip
@@ -80,7 +161,7 @@
   const site = SITES.find(function (s) {
     return s.host === hostname && s.paths.indexOf(location.pathname) !== -1;
   });
-  if (!site) return;
+  if (!site) { dbg('skip: no site entry for this url'); return; }
 
   // A `via` marker only passes when the site itself put it there: same-origin
   // navigation carries a referrer, typing the URL by hand does not, so the
@@ -89,7 +170,7 @@
   const handedOver = (site.via || []).some(function (marker) {
     return arrived.indexOf(marker) !== -1;
   });
-  if (handedOver && document.referrer.indexOf('https://' + site.host + '/') === 0) return;
+  if (handedOver && document.referrer.indexOf('https://' + site.host + '/') === 0) { dbg('skip: via hand-off'); return; }
 
   const PROMPT  = site.prompt;
   const SECONDS = site.seconds || DELAY_SECONDS;
@@ -102,7 +183,8 @@
   // line, and a `const` is not readable before its declaration is reached.
   const TAB_TAG = 'intent-gate-tab:';
 
-  if (ONCE && passed()) return;
+  dbg('site=' + site.id, 'once=' + ONCE + ' stored=' + (read(FLAG) || 'none') + ' tabTag=' + (tabToken() || 'none'));
+  if (ONCE && passed()) { dbg('skip: already passed in this tab', revisit() ? '(reload/back)' : '(token match)'); return; }
 
   // Page-level CSS does two things only: blank the page, and pin our host
   // element. Everything else lives inside the shadow root, out of reach of
@@ -197,6 +279,8 @@
     </div>
   `;
   document.documentElement.appendChild(host);
+  if (dbgHost) document.documentElement.appendChild(dbgHost);   // keep the badge above the gate
+  dbg('gate shown');
 
   const wrap = root.querySelector('.wrap');
   const msg  = root.querySelector('.msg');
@@ -216,7 +300,8 @@
   // URL bar still holds focus — which is exactly while the prompt is still
   // typing itself out, so an early tap was swallowed and the gate looked dead.
   // The wait itself is still guarded, by onFocusChange below.
-  go.addEventListener('click', startCountdown);
+  go.addEventListener('pointerdown', function () { dbg('pointerdown continue'); });
+  go.addEventListener('click', function () { dbg('click continue', 'counting=' + counting); startCountdown(); });
   out.addEventListener('click', leave);
   document.addEventListener('keydown', onKey, true);
 
@@ -282,7 +367,8 @@
   // countdown. Waiting it out somewhere else is the loophole this closes —
   // requestAnimationFrame stops in a hidden tab, but a visible window with the
   // focus elsewhere would otherwise keep counting.
-  function onFocusChange() {
+  function onFocusChange(event) {
+    dbg('countdown ' + (event && event.type) + ' -> ' + (focused() ? 'kept' : 'CANCELLED'));
     if (focused()) return;
     stopCountdown();
     bar.textContent = '';                        // the bar goes with the wait
@@ -302,6 +388,7 @@
   // The flag is only set here, at the end of the wait, so bailing out
   // mid-countdown does not buy a free pass on the next visit.
   function reveal() {
+    dbg('revealed');
     stopCountdown();
     if (ONCE) write(FLAG, tagTab());
     document.removeEventListener('keydown', onKey, true);
@@ -313,6 +400,7 @@
   }
 
   function leave() {
+    dbg('abort');
     if (history.length > 1) history.back();
     else location.replace(EXIT_URL);
   }
